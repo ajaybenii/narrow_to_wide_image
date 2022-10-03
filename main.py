@@ -8,7 +8,7 @@ from typing import Optional
 from PIL import Image
 from PIL.Image import Resampling
 from pydantic import BaseModel
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile,HTTPException
 
 from urllib.parse import urlparse
 from fastapi.responses import StreamingResponse
@@ -66,12 +66,15 @@ async def insert_image_by_file(insert_image: UploadFile=File(...),):
 @app.get("/image_by_URL")
 async def insert_image_by_url(insert_image: str):
 
-    response = requests.get(insert_image)
-    image_bytes = io.BytesIO(response.content)
-   
-    image = Image.open(image_bytes)
-    filename = insert_image
-   
+    try:
+        response = requests.get(insert_image)
+        image_bytes = io.BytesIO(response.content)
+    
+        image = Image.open(image_bytes)
+        filename = insert_image
+        
+    except:
+        raise HTTPException(status_code=406, detail="Not a valid URL")
     #this function get the format type of input image
     def get_format(filename):
         format_ = filename.split(".")[-1]
