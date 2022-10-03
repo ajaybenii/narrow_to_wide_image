@@ -1,3 +1,4 @@
+from email.mime import image
 import io
 import PIL
 import requests
@@ -5,6 +6,7 @@ import requests
 from io import BytesIO
 from typing import Optional
 from PIL import Image
+from PIL.Image import Resampling
 from pydantic import BaseModel
 from fastapi import FastAPI, File, UploadFile
 
@@ -61,57 +63,51 @@ async def insert_image_by_file(insert_image: UploadFile=File(...),):
     
     return StreamingResponse(buf,media_type=get_content_type(format_))
 
-@app.post("/image_by_URL")
-async def insert_image_by_URL(insert_image:str):
-    
+@app.get("/image_by_URL")
+async def insert_image_by_url(insert_image: str):
+
     response = requests.get(insert_image)
     image_bytes = io.BytesIO(response.content)
-    
-    original_image = Image.open(image_bytes)
-    format_ = original_image.format.lower()
-
-    filename = insert_image.lower()
-
+   
+    image = Image.open(image_bytes)
+    filename = insert_image
+   
     #this function get the format type of input image
-    def get_format(format_):  
+    def get_format(filename):
+        format_ = filename.split(".")[-1]
 
-        if format_ == "jpg":
-            format_ = "jpg"
-        elif format_== "jpeg":
+        if format_.lower() == "jpg":
             format_ = "jpeg"
-        elif format_ == "webp":
+        elif format_.lower() == "webp":
             format_ = "WebP"
-        elif format_ == "gif":
-            format_ = "gif"
     
         return format_
  
    
-    # #this function for gave the same type of format to output
+    #this function for gave the same type of format to output
     def get_content_type(format_):
-        
+        type_ = "image/jpeg"
         if format_ == "gif":
             type_ = "image/gif"
         elif format_ == "webp":
             type_ = "image/webp"
         elif format_ == "png":
             type_ = "image/png"
-        elif format_ == "jpg":
-            type_ = "image/jpg"
-        elif format_ == "jpeg":
-            type_ = "image/jpeg"
         #print(type_)
         return type_
 
-    format_ = get_format(format_.lower())#here format_ store the type of image by filename
-
+    format_ = get_format(filename)#here format_ store the type of image by filename
+    original_image = image
     wdt,baseheight = original_image.size
     hpercent = (baseheight / float(original_image.size[1]))
     wsize = int((float(original_image.size[1]) * float(hpercent)))
     original_image = original_image.resize((1020, 710), Image.Resampling.LANCZOS)
+    
+    buffer = BytesIO()
+    
+    original_image = original_image.convert('RGB')
+    original_image.save(buffer, format=format_, quality=100)
+    # image.show()
+    buffer.seek(0)
 
-    buf = BytesIO()
-    original_image.save(buf, format=format_.lower(), quality=100)
-    buf.seek(0)
-
-    return StreamingResponse(buf,media_type=get_content_type(format_))
+    return StreamingResponse(buffer, media_type=get_content_type(format_))
